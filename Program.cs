@@ -32,28 +32,66 @@ var createProject = new Mutation()
     {
         payload.ClientMutationId, ProjectId = payload.ProjectV2.Id, ProjectName = payload.ProjectV2.Title,
         ProjectOwnerId = payload.ProjectV2.Owner.Id, ProjectNumber = payload.ProjectV2.Number,
-        //StatusField = payload.ProjectV2.Fields(20, null, null, null, null).Nodes.OfType<ProjectV2SingleSelectField>().Select(f => new { f.Id }).ToList().Single()
+        StatusField = payload.ProjectV2.Fields(20, null, null, null, null).Nodes.OfType<ProjectV2SingleSelectField>().Select(f => new { f.Id }).ToList().Single()
     });
 
 
 var projectData =  await connection.Run(createProject);
 
-var statusField = new Mutation()
-    .CreateProjectV2Field(new CreateProjectV2FieldInput
-    {
-        ProjectId = projectData.ProjectId,
-        DataType = ProjectV2CustomFieldType.SingleSelect,
-        Name = "Status2",
-        SingleSelectOptions = new ProjectV2SingleSelectFieldOptionInput[]
-        {
-            new() { Name = "To Do", Description = "First" },
-            new() { Name = "To Do 1", Description = "Second" },
-            new() { Name = "To Do 2", Description = "Third" },
-        }
-    })
-    .Select(payload => new { Id = payload.ProjectV2Field });
+try
+{
 
-var fieldData =  await connection.Run(statusField);
+    // Cant delete default field
+    // var deleteDefaultField = new Mutation()
+    //     .DeleteProjectV2Field(new DeleteProjectV2FieldInput
+    //     {
+    //         FieldId = projectData.StatusField.Id,
+    //     })
+    //     .Select(payload => payload.ClientMutationId);
+    //
+    // var deleteFieldData =  await connection.Run(deleteDefaultField);
+    
+    // var clearFieldValue = new Mutation()
+    //     .ClearProjectV2ItemFieldValue(new ClearProjectV2ItemFieldValueInput
+    //     {
+    //         ProjectId = projectData.ProjectId,
+    //         FieldId = 
+    //     })
+
+    var statusField = new Mutation()
+        .CreateProjectV2Field(new CreateProjectV2FieldInput
+        {
+            ProjectId = projectData.ProjectId,
+            DataType = ProjectV2CustomFieldType.SingleSelect,
+            Name = "Status2",
+            SingleSelectOptions = new ProjectV2SingleSelectFieldOptionInput[]
+            {
+                new() { Name = "To Do", Description = "First" },
+                new() { Name = "To Do 1", Description = "Second" },
+                new() { Name = "To Do 2", Description = "Third" },
+            }
+        })
+        .Select(payload => new { Id = payload.ProjectV2Field });
+
+    var fieldData =  await connection.Run(statusField);
+}
+finally
+{
+    var deleteProjectQuery = new Mutation()
+        .DeleteProjectV2(new DeleteProjectV2Input
+        {
+            ProjectId = projectData.ProjectId,
+            ClientMutationId = clientMutationId
+
+        })
+        .Select(payload => new
+        {
+            ProjectOwnerId = payload.ProjectV2.Owner.Id,
+            payload.ClientMutationId,
+        });
+
+    var deleteResult =  await connection.Run(deleteProjectQuery);
+}
 
 // var updateField = new Mutation()
 //     .UpdateProjectV2ItemFieldValue(new UpdateProjectV2ItemFieldValueInput
@@ -70,17 +108,3 @@ var fieldData =  await connection.Run(statusField);
 //         }
 //     })
 
-var deleteProjectQuery = new Mutation()
-    .DeleteProjectV2(new DeleteProjectV2Input
-    {
-        ProjectId = projectData.ProjectId,
-        ClientMutationId = clientMutationId
-
-    })
-    .Select(payload => new
-    {
-        ProjectOwnerId = payload.ProjectV2.Owner.Id,
-        payload.ClientMutationId,
-    });
-
-var deleteResult =  await connection.Run(deleteProjectQuery);
